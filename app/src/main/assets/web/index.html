@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>GTA 1 Launcher</title>
+<link rel="stylesheet" href="vendor/js-dos.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Launcher screen -->
+<main id="launcher">
+  <h1>GTA 1 Launcher</h1>
+  <p class="sub">Unofficial launcher. No game files included &mdash; bring your own legal copy.</p>
+
+  <ol class="steps">
+    <li>Copy your own GTA 1 (DOS version) folder into a <b>.zip</b> file on this phone.</li>
+    <li>Tap <b>Choose GTA 1 ZIP</b> and select it.</li>
+    <li>Tap <b>Play</b>.</li>
+  </ol>
+
+  <label class="btn" for="zipInput">Choose GTA 1 ZIP</label>
+  <input id="zipInput" type="file" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+
+  <div id="found" class="found" hidden></div>
+  <div id="error" class="error" hidden></div>
+
+  <button id="playBtn" class="btn primary" disabled>Play</button>
+
+  <div class="opts">
+    <label><input type="checkbox" id="optRemember" checked> Remember this game on this device</label>
+    <label><input type="checkbox" id="optHaptics" checked> Vibration on button press</label>
+    <label>Control opacity
+      <input type="range" id="optOpacity" min="20" max="100" value="60">
+    </label>
+    <label>Control size
+      <input type="range" id="optScale" min="70" max="140" value="100">
+    </label>
+  </div>
+
+  <button id="forgetBtn" class="link" hidden>Forget saved game</button>
+</main>
+
+<!-- Game screen -->
+<section id="game" hidden>
+  <div id="dos"></div>
+  <div id="touch"></div>
+  <div id="pause" hidden>
+    <div class="panel">
+      <h2>Paused</h2>
+      <button class="btn" id="resumeBtn">Resume</button>
+      <button class="btn" id="escBtn">Send Esc (in-game menu)</button>
+      <button class="btn" id="quitBtn">Quit to launcher</button>
+    </div>
+  </div>
+</section>
+
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/js-dos.js"></script>
+<script src="controls.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
