@@ -80,41 +80,70 @@
       );
     }
 
+    // GTA 1 loads data via "..\gtadata\...", so GTADATA must be a sibling of the
+    // folder that holds GTA.EXE (normally GTA\DMADATA\GTA.EXE + GTA\GTADATA\).
+    // Keep the whole parent folder, and re-root it as C:\GTA so DOS never sees
+    // long folder names. The exe folder is always placed at C:\GTA\DMADATA.
     const slash = exe.lastIndexOf("/");
-    const prefix = slash >= 0 ? exe.slice(0, slash + 1) : "";
+    const exePrefix = slash >= 0 ? exe.slice(0, slash + 1) : "";          // e.g. "Game/DMADATA/"
+    const upSlash = exePrefix ? exePrefix.slice(0, -1).lastIndexOf("/") : -1;
+    const parentPrefix = exePrefix ? exePrefix.slice(0, upSlash + 1) : ""; // e.g. "Game/"
+    const exeAtRoot = exePrefix === "";
     showFound("Preparing game files\u2026");
 
-    // Re-root the game folder as C:\GTA so DOS never sees long folder names.
+    if (!names.some((n) => /(^|\/)gtadata\//i.test(n))) {
+      showFound("");
+      return showError(
+        "GTADATA folder not found in that ZIP. GTA 1 needs it next to the folder " +
+        "containing GTA.EXE. Zip the whole game folder (the one that contains both " +
+        "DMADATA and GTADATA)."
+      );
+    }
+
     const out = new JSZip();
     let count = 0;
     for (const n of names) {
-      if (!n.startsWith(prefix)) continue;
-      const rel = n.slice(prefix.length);
-      if (!rel) continue;
-      out.file("GTA/" + rel, await src.files[n].async("uint8array"), { compression: "STORE" });
+      let dest = null;
+      if (exeAtRoot) {
+        dest = /^gtadata\//i.test(n) ? "GTA/" + n : "GTA/DMADATA/" + n;
+      } else if (n.startsWith(exePrefix)) {
+        dest = "GTA/DMADATA/" + n.slice(exePrefix.length);
+      } else if (n.startsWith(parentPrefix)) {
+        dest = "GTA/" + n.slice(parentPrefix.length);
+      }
+      if (!dest) continue;
+      // DOS names are uppercase; normalizing avoids any case-matching issues
+      // (e.g. "gtadata" vs "GTADATA").
+      out.file(dest.toUpperCase(), await src.files[n].async("uint8array"), { compression: "STORE" });
       count++;
     }
 
+    const debugOn = $("optDebug").checked;
     const conf = [
       "[sdl]", "autolock=false",
       "[cpu]", "core=auto", "cputype=auto", "cycles=max",
       "[mixer]", "rate=44100", "blocksize=2048", "prebuffer=40",
       "[autoexec]",
-      "@echo off",
+      debugOn ? "rem debug" : "@echo off",
       "mount c .",
       "c:",
-      "cd GTA",
+      "cd GTA\\DMADATA",
+      ...(debugOn ? ["dir", "dir ..", "dir ..\\GTADATA\\PLAYER_A.DAT", "pause"] : []),
       "GTA.EXE",
       "exit",
     ].join("\n");
     out.file(".jsdos/dosbox.conf", conf);
 
     bundleBlob = await out.generateAsync({ type: "blob", compression: "STORE" });
-    showFound(`Found GTA.EXE and ${count} files. Ready to play.`);
+    const hasPlayer = names.some((n) => /(^|\/)gtadata\/player_a\.dat$/i.test(n));
+    showFound(
+      `Found ${exe} and ${count} files. ` +
+      `GTADATA\\PLAYER_A.DAT: ${hasPlayer ? "found" : "NOT FOUND"}. Ready to play.`
+    );
     playBtn.disabled = false;
 
     if ($("optRemember").checked) {
-      try { await kvSet("bundle", bundleBlob); forgetBtn.hidden = false; }
+      try { await kvSet("bundle2", bundleBlob); forgetBtn.hidden = false; }
       catch (e) { /* storage full or unavailable: not fatal */ }
     }
   }
@@ -126,12 +155,14 @@
   });
 
   forgetBtn.addEventListener("click", async () => {
-    await kvDel("bundle"); bundleBlob = null; playBtn.disabled = true; forgetBtn.hidden = true;
+    await kvDel("bundle"); await kvDel("bundle2"); bundleBlob = null; playBtn.disabled = true; forgetBtn.hidden = true;
     showFound("Saved game removed from this app.");
   });
 
   // Restore a remembered bundle on launch.
-  kvGet("bundle").then((b) => {
+  // Packages saved by v0.1 ("bundle") were built wrongly; drop them silently.
+  kvDel("bundle").catch(() => {});
+  kvGet("bundle2").then((b) => {
     if (b) {
       bundleBlob = b; playBtn.disabled = false; forgetBtn.hidden = false;
       showFound("Using the GTA 1 files you added earlier.");
